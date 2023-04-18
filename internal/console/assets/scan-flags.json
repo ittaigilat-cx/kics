@@ -191,5 +191,12 @@
     "shorthandFlag": "",
     "defaultValue": "false",
     "usage": "disables the exclusion of paths specified within .gitignore file"
+  },
+  "gpt": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "",
+    "usage": "Uses OpenAI GPT-4 to scan the input files\noverrides regular scanning\nvalue is \"opanai-api-key,free-text-query-string,platform-type\"\nexample: \"exposed api key in global security,OpenAPI\"" 
   }
+
 }

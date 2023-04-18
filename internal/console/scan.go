@@ -13,7 +13,9 @@ import (
 	"github.com/Checkmarx/kics/internal/constants"
 	sentryReport "github.com/Checkmarx/kics/internal/sentry"
 	"github.com/Checkmarx/kics/pkg/engine/source"
+	"github.com/Checkmarx/kics/pkg/gpt"
 	"github.com/Checkmarx/kics/pkg/scan"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -95,7 +97,7 @@ func run(cmd *cobra.Command) error {
 	// save the scan parameters into the ScanParameters struct
 	scanParams := getScanParameters(changedDefaultQueryPath, changedDefaultLibrariesPath)
 
-	return executeScan(scanParams)
+	return executeScanOrGpt(scanParams)
 }
 
 func updateReportFormats() {
@@ -137,9 +139,66 @@ func getScanParameters(changedDefaultQueryPath, changedDefaultLibrariesPath bool
 		ChangedDefaultQueryPath:     changedDefaultQueryPath,
 		BillOfMaterials:             flags.GetBoolFlag(flags.BomFlag),
 		ExcludeGitIgnore:            flags.GetBoolFlag(flags.ExcludeGitIgnore),
+		Gpt:                         flags.GetStrFlag(flags.GptFlag),
 	}
 
 	return &scanParams
+}
+
+func executeScanOrGpt(scanParams *scan.Parameters) error {
+	if len(scanParams.Gpt) > 0 {
+		return executeGpt(scanParams)
+	} else {
+		return executeScan(scanParams)
+	}
+}
+
+func executeGpt(scanParams *scan.Parameters) error {
+	split := strings.Split(scanParams.Gpt, ",")
+	if len(split) != 3 {
+		err := errors.Errorf("Invalid GPT parameters '%s'. Must be \"<openap-api-key>,<query-text>,<platform-type>\"", scanParams.Gpt)
+		log.Err(err)
+		return err
+	}
+
+	path := scanParams.Path[0]
+	apiKey := split[0]
+	query := split[1]
+	platform := split[2]
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		err = errors.Wrap(err, "failed to open path")
+		log.Err(err)
+		return err
+	}
+
+	if fileInfo.IsDir() {
+		err := errors.Errorf("Path '%s' is a directory. For now GPT expects a single file")
+		log.Err(err)
+		return err
+	}
+
+	log.Debug().Msg("gpt.scan(). openai-api-key: '" + apiKey + "', query: '" + query + "', platfrom: '" + platform + "', path: '" + path + "'")
+
+	prompt, err := GetPrompt(path, platform, query)
+	if err != nil {
+		log.Err(err)
+		return err
+	}
+
+	response, err := gpt.CallGPT(apiKey, prompt)
+
+	if err != nil {
+		log.Err(err)
+		return err
+	}
+
+	result := strings.TrimSpace(extractResult(response))
+
+	writeResult(result, path)
+
+	return nil
 }
 
 func executeScan(scanParams *scan.Parameters) error {

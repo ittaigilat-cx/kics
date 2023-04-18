@@ -32,4 +32,5 @@ const (
 	DisableSecretsFlag     = "disable-secrets"
 	SecretsRegexesPathFlag = "secrets-regexes-path" //nolint:gosec
 	ExcludeGitIgnore       = "exclude-gitignore"
+	GptFlag                = "gpt"
 )
