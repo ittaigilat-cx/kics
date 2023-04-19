@@ -1,19 +1,110 @@
 package console
 
 import (
+	_ "embed" // Embed kics CLI img and scan-flags
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Checkmarx/kics/internal/console/flags"
+	sentryReport "github.com/Checkmarx/kics/internal/sentry"
+	"github.com/Checkmarx/kics/pkg/engine/source"
+	"github.com/Checkmarx/kics/pkg/gpt"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
 )
 
 const (
+	gptCommandStr       = "gpt"
 	REGO_CODE_DELIMITER = "```\n"
 	RESULT_FILE_NAME    = "gpt-result.json"
 )
+
+var (
+	//go:embed assets/gpt-flags.json
+	gptFlagsListContent string
+)
+
+// NewGptCmd creates a new instance of the scan Command
+func NewGptCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   gptCommandStr,
+		Short: "Calls OpenAI GPT for querying vulnerabilities",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGpt(cmd)
+		},
+	}
+}
+
+func initGptCmd(gptCmd *cobra.Command) error {
+	if err := flags.InitJSONFlags(
+		gptCmd,
+		gptFlagsListContent,
+		false,
+		source.ListSupportedPlatforms(),
+		source.ListSupportedCloudProviders()); err != nil {
+		return err
+	}
+
+	if err := gptCmd.MarkFlagRequired(flags.GptPathFlag); err != nil {
+		sentryReport.ReportSentry(&sentryReport.Report{
+			Message:  "Failed to add command required flags",
+			Err:      err,
+			Location: "func initGptCmd()",
+		}, true)
+		log.Err(err).Msg("Failed to add command required flags")
+	}
+	return nil
+}
+
+func runGpt(cmd *cobra.Command) error {
+	path := flags.GetStrFlag(flags.PathFlag)
+	apiKey := flags.GetStrFlag(flags.ApiKey)
+	query := flags.GetStrFlag(flags.QueryFlag)
+	platform := flags.GetStrFlag(flags.PlatformFlag)
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		err = errors.Wrap(err, "failed to open path")
+		log.Err(err)
+		return err
+	}
+
+	if fileInfo.IsDir() {
+		err := errors.Errorf("Path '%s' is a directory. For now GPT expects a single file")
+		log.Err(err)
+		return err
+	}
+
+	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', path: '%s'", apiKey, query, platform, path)
+	log.Info().Msg(msg) // TODO: change to Debug()
+
+	prompt, err := GetPrompt(path, platform, query)
+	if err != nil {
+		log.Err(err)
+		return err
+	}
+	fmt.Printf("<prompt>\n%s\n</prompt>\n", prompt)
+
+	response, err := gpt.CallGPT(apiKey, prompt)
+
+	fmt.Printf("<Response>\n%s\n</Response>\n", response)
+
+	if err != nil {
+		log.Err(err)
+		return err
+	}
+
+	result := strings.TrimSpace(extractResult(response))
+
+	fmt.Printf("<Result>\n%s\n</Result>\n", result)
+
+	writeResult(result, path)
+
+	return nil
+}
 
 func writeResult(result, path string) error {
 	file := filepath.Join(filepath.Dir(path), RESULT_FILE_NAME)

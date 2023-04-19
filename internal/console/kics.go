@@ -43,8 +43,10 @@ func NewKICSCmd() *cobra.Command {
 func initialize(rootCmd *cobra.Command) error {
 	scanCmd := NewScanCmd()
 	remediateCmd := NewRemediateCmd()
+	gptCmd := NewGptCmd()
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewGenerateIDCmd())
+	rootCmd.AddCommand(gptCmd)
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(NewListPlatformsCmd())
 	rootCmd.AddCommand(remediateCmd)
@@ -60,6 +62,10 @@ func initialize(rootCmd *cobra.Command) error {
 	}
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		return err
+	}
+
+	if err := initGptCmd(gptCmd); err != nil {
 		return err
 	}
 

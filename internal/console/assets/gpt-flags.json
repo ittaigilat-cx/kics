@@ -1,0 +1,33 @@
+{
+  "api-key": {
+    "flagType": "str",
+    "shorthandFlag": "k",
+    "defaultValue": "",
+    "usage": "the openai api key with which to call GPT"
+  },
+  "query": {
+    "flagType": "str",
+    "shorthandFlag": "q",
+    "defaultValue": "",
+    "usage": "free-text description of the security vulnerability to check against"
+  },
+  "type": {
+    "flagType": "str",
+    "shorthandFlag": "t",
+    "defaultValue": "",
+    "usage": "the platform type of the security vulnerability"
+  },
+  "output-path": {
+    "flagType": "str",
+    "shorthandFlag": "o",
+    "defaultValue": "",
+    "usage": "directory path to store results"
+  },
+  "path": {
+    "flagType": "str",
+    "shorthandFlag": "p",
+    "defaultValue": "",
+    "usage": "path to scan\nexample: \"./somepath/somefile.txt\""
+  }
+
+}

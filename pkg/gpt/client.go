@@ -47,7 +47,7 @@ type ResponseBody struct {
 }
 
 func CallGPT(apiKey, prompt string) (string, error) {
-	maxTokens := 1750
+	maxTokens := 2048
 
 	requestBody := RequestBody{
 		MaxTokens:   maxTokens,
