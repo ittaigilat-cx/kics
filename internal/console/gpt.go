@@ -3,6 +3,7 @@ package console
 import (
 	_ "embed" // Embed kics CLI img and scan-flags
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,7 +149,7 @@ func GetPrompt(path, platform, query string) (string, error) {
 	}
 	file := filepath.Base(path)
 	prompt := fmt.Sprintf(`
-in the following %s code (taken from file %s), are there any security issues of type "%s" (this is the QUERY_NAME)? 
+Explain the following %s code (taken from file %s), and check if there are any security issues of type "%s" (this is the QUERY_NAME)? 
 If there are, in what lines of the code? Explain the issues that were found and then write them as a REGO result file.
 %s
 %s
@@ -175,5 +176,16 @@ func ReadFileToString(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	bare := string(data)
+
+	return addLineNumbers(bare), nil
+}
+
+func addLineNumbers(s string) string {
+	lines := strings.Split(s, "\n")
+	digits := int(math.Log10(math.Abs(float64(len(lines))))) + 1
+	for i, line := range lines {
+		lines[i] = fmt.Sprintf("[%*d] %s", digits, i+1, line)
+	}
+	return strings.Join(lines, "\n")
 }
