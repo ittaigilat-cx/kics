@@ -197,7 +197,7 @@ func executeGpt(scanParams *scan.Parameters) error {
 
 	result := strings.TrimSpace(extractResult(response))
 
-	writeResult(result, path)
+	writeFile(result, path+".json")
 
 	return nil
 }

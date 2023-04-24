@@ -5,6 +5,8 @@ const (
 	ApiKey            = "api-key"
 	QueryFlag         = "query"
 	PlatformFlag      = "type"
-	GptOutputPathFlag = "output-path"
-	GptPathFlag       = "path"
+	GptPathFlag       = "gpt-path"
+	GptOutputNameFlag = "gpt-output-name"
+	GptOutputPathFlag = "gpt-output-path"
+	GptDetailsFlag    = "details"
 )

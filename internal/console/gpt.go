@@ -20,7 +20,8 @@ import (
 const (
 	gptCommandStr       = "gpt"
 	REGO_CODE_DELIMITER = "```\n"
-	RESULT_FILE_NAME    = "gpt-result.json"
+	RESULT_FILE_NAME    = "gpt-result"
+	DETAILS_FILE_NAME   = "gpt-details"
 )
 
 var (
@@ -61,10 +62,20 @@ func initGptCmd(gptCmd *cobra.Command) error {
 }
 
 func runGpt(cmd *cobra.Command) error {
-	path := flags.GetStrFlag(flags.PathFlag)
+	path := flags.GetStrFlag(flags.GptPathFlag)
 	apiKey := flags.GetStrFlag(flags.ApiKey)
 	query := flags.GetStrFlag(flags.QueryFlag)
 	platform := flags.GetStrFlag(flags.PlatformFlag)
+	outputPath := flags.GetStrFlag(flags.GptOutputPathFlag)
+	outputName := flags.GetStrFlag(flags.GptOutputNameFlag)
+	if outputName == "" {
+		outputName = RESULT_FILE_NAME
+	}
+
+	if outputPath == "" {
+		outputPath = path
+	}
+	outputPath = filepath.Join(outputPath, outputName)
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -79,7 +90,7 @@ func runGpt(cmd *cobra.Command) error {
 		return err
 	}
 
-	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', path: '%s'", apiKey, query, platform, path)
+	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', input-path: '%s', output-path: '%s'", apiKey, query, platform, path, outputPath)
 	log.Info().Msg(msg) // TODO: change to Debug()
 
 	prompt, err := GetPrompt(path, platform, query)
@@ -87,11 +98,16 @@ func runGpt(cmd *cobra.Command) error {
 		log.Err(err)
 		return err
 	}
-	fmt.Printf("<prompt>\n%s\n</prompt>\n", prompt)
+
+	details := fmt.Sprintf("<prompt>\n%s\n</prompt>\n", prompt)
 
 	response, err := gpt.CallGPT(apiKey, prompt)
+	if err != nil {
+		log.Err(err)
+		return err
+	}
 
-	fmt.Printf("<Response>\n%s\n</Response>\n", response)
+	details += fmt.Sprintf("<Response>\n%s\n</Response>\n", response)
 
 	if err != nil {
 		log.Err(err)
@@ -100,18 +116,24 @@ func runGpt(cmd *cobra.Command) error {
 
 	result := strings.TrimSpace(extractResult(response))
 
-	fmt.Printf("<Result>\n%s\n</Result>\n", result)
+	details += fmt.Sprintf("<Result>\n%s\n</Result>\n", result)
 
-	writeResult(result, path)
+	if err := writeFile(result, outputPath+".json"); err != nil {
+		return err
+	}
+
+	fmt.Print(details)
+	if flags.GetBoolFlag(flags.GptDetailsFlag) {
+		writeFile(details, outputPath+"-details.txt")
+	}
 
 	return nil
 }
 
-func writeResult(result, path string) error {
-	file := filepath.Join(filepath.Dir(path), RESULT_FILE_NAME)
-	data := []byte(result)
-	os.Remove(file)
-	err := os.WriteFile(file, data, 0644)
+func writeFile(content, path string) error {
+	data := []byte(content)
+	os.Remove(path)
+	err := os.WriteFile(path, data, 0644)
 	if err != nil {
 		log.Err(err)
 		return err

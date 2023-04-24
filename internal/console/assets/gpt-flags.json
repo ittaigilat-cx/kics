@@ -17,17 +17,28 @@
     "defaultValue": "",
     "usage": "the platform type of the security vulnerability"
   },
-  "output-path": {
+  "gpt-path": {
+    "flagType": "str",
+    "shorthandFlag": "p",
+    "defaultValue": "",
+    "usage": "path to scan\nexample: \"./somepath/somefile.txt\""
+  },
+  "gpt-output-name": {
+    "flagType": "str",
+    "shorthandFlag": "n",
+    "defaultValue": "gpt-results",
+    "usage": "results file name (extension is \".json\")"
+  },
+  "gpt-output-path": {
     "flagType": "str",
     "shorthandFlag": "o",
     "defaultValue": "",
     "usage": "directory path to store results"
   },
-  "path": {
-    "flagType": "str",
-    "shorthandFlag": "p",
-    "defaultValue": "",
-    "usage": "path to scan\nexample: \"./somepath/somefile.txt\""
+  "details": {
+    "flagType": "bool",
+    "shorthandFlag": "d",
+    "defaultValue": "false",
+    "usage": "output all GPT response into separate text file (with extension \".txt\") named as result filename with \"-details\" suffix"
   }
-
 }
