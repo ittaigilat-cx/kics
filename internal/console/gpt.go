@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Checkmarx/kics/internal/console/flags"
@@ -65,6 +66,7 @@ func runGpt(cmd *cobra.Command) error {
 	path := flags.GetStrFlag(flags.GptPathFlag)
 	apiKey := flags.GetStrFlag(flags.ApiKey)
 	query := flags.GetStrFlag(flags.QueryFlag)
+	queryDetails := flags.GetStrFlag(flags.QueryDetailsFlag)
 	platform := flags.GetStrFlag(flags.PlatformFlag)
 	outputPath := flags.GetStrFlag(flags.GptOutputPathFlag)
 	outputName := flags.GetStrFlag(flags.GptOutputNameFlag)
@@ -93,7 +95,7 @@ func runGpt(cmd *cobra.Command) error {
 	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', input-path: '%s', output-path: '%s'", apiKey, query, platform, path, outputPath)
 	log.Info().Msg(msg) // TODO: change to Debug()
 
-	prompt, err := GetPrompt(path, platform, query)
+	prompt, err := GetPrompt(path, platform, query, queryDetails)
 	if err != nil {
 		log.Err(err)
 		return err
@@ -123,7 +125,7 @@ func runGpt(cmd *cobra.Command) error {
 	}
 
 	fmt.Print(details)
-	if flags.GetBoolFlag(flags.GptDetailsFlag) {
+	if flags.GetBoolFlag(flags.GptOutputDetailsFlag) {
 		writeFile(details, outputPath+"-details.txt")
 	}
 
@@ -143,7 +145,7 @@ func writeFile(content, path string) error {
 
 func extractResult(s string) string {
 	var suffix, result string
-	suffix = substringAfter(s, "REGO result file")
+	suffix = substringAfter(s, "REGO result")
 	result = substringAfter(suffix, "```")
 	index := strings.Index(result, "```")
 	if index != -1 {
@@ -162,16 +164,19 @@ func substringAfter(s, k string) string {
 	}
 }
 
-func GetPrompt(path, platform, query string) (string, error) {
-	content, err := ReadFileToString(path)
+func GetPrompt(path, platform, query, queryDetails string) (string, error) {
+	content, err := ReadFileToStringWithLineNumbers(path)
 	if err != nil {
 		err = errors.Errorf("Error reading %s: %s\n", path, err)
 		log.Err(err)
 		return "", err
 	}
 	file := filepath.Base(path)
-	prompt := fmt.Sprintf(`
-Explain the following %s code (taken from file %s), and check if there are any security issues of type "%s" (this is the QUERY_NAME)? 
+
+	prompt := GetPromptFromFile(query, file, platform, content)
+	if prompt == "" {
+		prompt = fmt.Sprintf(`
+Explain the following %s code (taken from file %s), and check if there are any security issues of type "%s" (this is the QUERY_NAME) %s? 
 If there are, in what lines of the code? Explain the issues that were found and then write them as a REGO result file.
 %s
 %s
@@ -180,17 +185,43 @@ Use this format for the REGO result:
 %s
 [
   {
-    "queryName": <QUERY_NAME>,
-    "severity": <SEVERITY>,
+	"queryName": <QUERY_NAME>,
+	"severity": <SEVERITY>,
     "line": <the line in the code where the issue was found>,
-    "filename": <FILE_NAME>
+	"filename": <FILE_NAME>
   }
 ]
 %s
-`, platform, file, query, REGO_CODE_DELIMITER, content, REGO_CODE_DELIMITER, REGO_CODE_DELIMITER, REGO_CODE_DELIMITER,
-	)
+`, platform, file, query, queryDetails, REGO_CODE_DELIMITER, content, REGO_CODE_DELIMITER, REGO_CODE_DELIMITER, REGO_CODE_DELIMITER,
+		)
+	}
 
 	return prompt, nil
+}
+
+func GetPromptFromFile(query, file, platform, content string) string {
+	p, err := ReadFileToString(query)
+	if err != nil {
+		log.Err(err)
+		return ""
+	}
+	keysToValues := make(map[string]string)
+	keysToValues["file"] = file
+	keysToValues["platform"] = platform
+	keysToValues["content"] = content
+	return ReplaceKeywordsWithValues(p, keysToValues)
+}
+
+func ReplaceKeywordsWithValues(input string, keysToValues map[string]string) string {
+	for key, value := range keysToValues {
+		placeholder := "${" + key + "}"
+		input = strings.ReplaceAll(input, placeholder, value)
+	}
+	pattern := regexp.MustCompile(`\$\{.*\}`)
+	if pattern.MatchString(input) {
+		return ""
+	}
+	return input
 }
 
 func ReadFileToString(path string) (string, error) {
@@ -199,7 +230,14 @@ func ReadFileToString(path string) (string, error) {
 		return "", err
 	}
 	bare := string(data)
+	return bare, nil
+}
 
+func ReadFileToStringWithLineNumbers(path string) (string, error) {
+	bare, err := ReadFileToString(path)
+	if err != nil {
+		return "", err
+	}
 	return addLineNumbers(bare), nil
 }
 

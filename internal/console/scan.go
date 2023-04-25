@@ -182,7 +182,7 @@ func executeGpt(scanParams *scan.Parameters) error {
 
 	log.Debug().Msg("gpt.scan(). openai-api-key: '" + apiKey + "', query: '" + query + "', platfrom: '" + platform + "', path: '" + path + "'")
 
-	prompt, err := GetPrompt(path, platform, query)
+	prompt, err := GetPrompt(path, platform, query, "")
 	if err != nil {
 		log.Err(err)
 		return err
