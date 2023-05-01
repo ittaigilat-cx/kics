@@ -7,7 +7,4 @@ found and then write them as a REGO result file, one result for each issue found
 ```
 ${content}
 ```
-Use this format for the REGO result: 
-```
 ${kics-result}
-```

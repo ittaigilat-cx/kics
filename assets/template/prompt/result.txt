@@ -1,3 +1,5 @@
+Use this format for the REGO result: 
+```
 [
   {
     "queryName": <QUERY_NAME>,
@@ -7,3 +9,4 @@
     "description": <QUERY_DESCRIPTION>
   }
 ]
+```
