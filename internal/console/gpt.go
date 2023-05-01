@@ -79,20 +79,20 @@ func runGpt(cmd *cobra.Command) error {
 	}
 	outputPath = filepath.Join(outputPath, outputName)
 
-	fileInfo, err := os.Stat(path)
+	isDir, err := isPathDir(path)
 	if err != nil {
-		err = errors.Wrap(err, "failed to open path")
 		log.Err(err)
 		return err
 	}
 
-	if fileInfo.IsDir() {
-		err := errors.Errorf("Path '%s' is a directory. For now GPT expects a single file")
+	if isDir {
+		err := errors.Errorf("Path '%s' is a directory. For now GPT expects a single file", path)
 		log.Err(err)
 		return err
 	}
 
 	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', input-path: '%s', output-path: '%s'", apiKey, query, platform, path, outputPath)
+
 	log.Info().Msg(msg) // TODO: change to Debug()
 
 	prompt, err := GetPrompt(path, platform, query, queryDetails)
@@ -101,7 +101,9 @@ func runGpt(cmd *cobra.Command) error {
 		return err
 	}
 
-	details := fmt.Sprintf("<prompt>\n%s\n</prompt>\n", prompt)
+	promptOutput := fmt.Sprintf("<prompt>\n%s\n</prompt>\n", prompt)
+	fmt.Print(promptOutput)
+	details := promptOutput
 
 	response, err := gpt.CallGPT(apiKey, prompt)
 	if err != nil {
@@ -109,27 +111,37 @@ func runGpt(cmd *cobra.Command) error {
 		return err
 	}
 
-	details += fmt.Sprintf("<Response>\n%s\n</Response>\n", response)
-
-	if err != nil {
-		log.Err(err)
-		return err
-	}
+	responseOutput := fmt.Sprintf("<Response>\n%s\n</Response>\n", response)
+	fmt.Print(responseOutput)
+	details += responseOutput
 
 	result := strings.TrimSpace(extractResult(response))
 
-	details += fmt.Sprintf("<Result>\n%s\n</Result>\n", result)
+	resultOutput := fmt.Sprintf("<Result>\n%s\n</Result>\n", result)
+	fmt.Print(resultOutput)
+	details += resultOutput
 
 	if err := writeFile(result, outputPath+".json"); err != nil {
 		return err
 	}
 
-	fmt.Print(details)
 	if flags.GetBoolFlag(flags.GptOutputDetailsFlag) {
 		writeFile(details, outputPath+"-details.txt")
 	}
 
 	return nil
+}
+
+func isPathDir(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	if fileInfo.IsDir() {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func writeFile(content, path string) error {
@@ -185,10 +197,10 @@ Use this format for the REGO result:
 %s
 [
   {
-	"queryName": <QUERY_NAME>,
-	"severity": <SEVERITY>,
+    "queryName": <QUERY_NAME>,
+    "severity": <SEVERITY>,
     "line": <the line in the code where the issue was found>,
-	"filename": <FILE_NAME>
+    "filename": <FILE_NAME>
   }
 ]
 %s
@@ -200,7 +212,7 @@ Use this format for the REGO result:
 }
 
 func GetPromptFromFile(query, file, platform, content string) string {
-	p, err := ReadFileToString(query)
+	p, err := ReadPromptFromFile(query)
 	if err != nil {
 		log.Err(err)
 		return ""
@@ -208,8 +220,98 @@ func GetPromptFromFile(query, file, platform, content string) string {
 	keysToValues := make(map[string]string)
 	keysToValues["file"] = file
 	keysToValues["platform"] = platform
-	keysToValues["content"] = content
-	return ReplaceKeywordsWithValues(p, keysToValues)
+	p2 := ReplaceKeywordsWithValues(p, keysToValues)
+	keysToValues = make(map[string]string)
+	keysToValues["content"] = content // don't mix content with other keys since it may have ${..} patterns as well
+	return ReplaceKeywordsWithValues(p2, keysToValues)
+}
+
+func ReadPromptFromFile(promptFile string) (string, error) {
+	var basePath string
+	log.Info().Msg(fmt.Sprintf("Trying to read prompt file '%s'", promptFile))
+	p, err := ReadFileToString(promptFile)
+	if err != nil {
+		if basePath, err = getBasePath(); err != nil {
+			return "", nil
+		}
+		promptFile = filepath.Join(basePath, flags.GetStrFlag(flags.GptPromptsPathFlag), promptFile)
+		log.Info().Msg(fmt.Sprintf("Trying to read prompt file '%s'", promptFile))
+		p, err = ReadFileToString(promptFile)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	kicsRegEx := regexp.MustCompile(`\$\{kics-([a-zA-Z]+)\}`)
+	matches := kicsRegEx.FindAllStringSubmatch(p, -1)
+	var values []string
+	for _, match := range matches {
+		values = append(values, match[1])
+	}
+	if len(values) == 0 {
+		return p, nil
+	}
+	values = uniqueValues(values)
+	templates, err := readTemplates(values)
+	if err != nil {
+		return "", err
+	}
+	log.Info().Msg(fmt.Sprintf("Found '%d' templates in prompt file '%s'", len(values), promptFile))
+	p = ReplaceKeywordsWithValues(p, templates)
+	return p, nil
+}
+
+func readTemplates(values []string) (map[string]string, error) {
+	templates := make(map[string]string)
+	for _, val := range values {
+		basePath, err := getBasePath()
+		if err != nil {
+			return templates, err
+		}
+		fn := filepath.Join(basePath, flags.GetStrFlag(flags.GptTemplatesPathFlag), val+".txt")
+		log.Info().Msg(fmt.Sprintf("Trying to read template file '%s'", fn))
+		if template, err := ReadFileToString(fn); err != nil {
+			return templates, err
+		} else {
+			templates["kics-"+val] = template
+		}
+	}
+	return templates, nil
+}
+
+func getBasePath() (string, error) {
+	binPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	basePath := filepath.Dir(filepath.Dir(binPath))
+	assetsPath := filepath.Join(basePath, "assets")
+	isDir, err := isPathDir(assetsPath)
+	if err != nil {
+		basePath = filepath.Dir(basePath)
+		assetsPath = filepath.Join(basePath, "assets")
+	}
+	isDir, err = isPathDir(assetsPath)
+	if err != nil {
+		return "", err
+	}
+	if !isDir {
+		return "", errors.Errorf("assets path '%s' is not a directory", assetsPath)
+	}
+	return basePath, nil
+}
+
+func uniqueValues(values []string) []string {
+	uniqueSet := make(map[string]bool)
+	var uniqueSlice []string
+
+	for _, val := range values {
+		if _, exists := uniqueSet[val]; !exists {
+			uniqueSet[val] = true
+			uniqueSlice = append(uniqueSlice, val)
+		}
+	}
+	return uniqueSlice
 }
 
 func ReplaceKeywordsWithValues(input string, keysToValues map[string]string) string {
@@ -217,10 +319,7 @@ func ReplaceKeywordsWithValues(input string, keysToValues map[string]string) str
 		placeholder := "${" + key + "}"
 		input = strings.ReplaceAll(input, placeholder, value)
 	}
-	pattern := regexp.MustCompile(`\$\{.*\}`)
-	if pattern.MatchString(input) {
-		return ""
-	}
+
 	return input
 }
 

@@ -1,0 +1,12 @@
+Explain the following Kubernetes code (taken from file ${file}) and check if there are any security issues related to 
+"priviledge escalation allowed" (this is the QUERY_NAME). Containers should not run with 'allowPrivilegeEscalation' in 
+order to prevent them from gaining more privileges than their parent process (this is the QUERY_DESCRIPTION)
+If there are any security issues of this type, specify in what lines of the code they appear and explain the issues that 
+were found and then write them as a REGO result file, one result for each issue found.
+```
+${content}
+```
+Use this format for the REGO result: 
+```
+${kics-result}
+```

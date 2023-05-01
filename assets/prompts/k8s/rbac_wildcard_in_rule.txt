@@ -1,15 +1,13 @@
-Explain the following Kubernetes code (taken from file ${file}) and check if there are any security issues related to "RBAC Wildcard in Rule" (this is the QUERY_NAME). This security issue is about Roles and ClusterRoles with wildcard RBAC permissions providing excessive rights to the Kubernetes API and should be avoided. The principle of least privilege recommends to specify only the set of needed objects and actions. If there are any security issues of this type, specify in what lines of the code they appear and explain the issues that were found and then write them as a REGO result file, one result for each issue found.
+Explain the following Kubernetes code (taken from file ${file}) and check if there are any security issues related to 
+"RBAC Wildcard in Rule" (this is the QUERY_NAME). This security issue is about Roles and ClusterRoles with wildcard RBAC 
+permissions providing excessive rights to the Kubernetes API and should be avoided. The principle of least privilege 
+recommends to specify only the set of needed objects and actions. 
+If there are any security issues of this type, specify in what lines of the code they appear and explain the issues that were 
+found and then write them as a REGO result file, one result for each issue found.
 ```
 ${content}
 ```
 Use this format for the REGO result: 
 ```
-[
-  {
-    "queryName": <QUERY_NAME>,
-    "severity": <SEVERITY>,
-    "line": <the line in the code where the issue was found>,
-    "filename": <FILE_NAME>
-  }
-]
+${kics-result}
 ```

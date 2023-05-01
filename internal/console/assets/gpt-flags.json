@@ -9,7 +9,7 @@
     "flagType": "str",
     "shorthandFlag": "q",
     "defaultValue": "",
-    "usage": "free-text description of the security vulnerability to check against, or the file path to the GPT prompt to use\nfree-text query example: \"RBAC Wildcard In Rule\"\nprompt file example: \"./prompts/rbac-wildcard-in-rule.txt\""
+    "usage": "free-text description of the security vulnerability to check against\n or the file path to the GPT prompt to use (assumed to be in assets/prompts)\nfree-text query example: \"RBAC Wildcard In Rule\"\nprompt file example: \"k8s/rbac-wildcard-in-rule.txt\""
   },
   "query-details": {
     "flagType": "str",
@@ -23,7 +23,7 @@
     "defaultValue": "",
     "usage": "the platform type of the security vulnerability\nexample: \"Kubernetes\""
   },
-  "gpt-path": {
+  "gpt-input-path": {
     "flagType": "str",
     "shorthandFlag": "p",
     "defaultValue": "",
@@ -46,5 +46,17 @@
     "shorthandFlag": "d",
     "defaultValue": "false",
     "usage": "output all GPT response into separate text file (with extension \".txt\") named as result filename with \"-details\" suffix"
-  }
+  },
+  "gpt-prompts-path": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "assets/prompts",
+    "usage": "location of prompts files"
+  },
+  "gpt-templates-path": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "assets/template/prompt",
+    "usage": "location of prompt template files"
+  }  
 }
