@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Checkmarx/kics/internal/console/flags"
+	consoleHelpers "github.com/Checkmarx/kics/internal/console/helpers"
 	sentryReport "github.com/Checkmarx/kics/internal/sentry"
 	"github.com/Checkmarx/kics/pkg/engine/source"
 	"github.com/Checkmarx/kics/pkg/gpt"
@@ -79,7 +80,7 @@ func runGpt(cmd *cobra.Command) error {
 	}
 	outputPath = filepath.Join(outputPath, outputName)
 
-	isDir, err := isPathDir(path)
+	isDir, err := consoleHelpers.IsPathDir(path)
 	if err != nil {
 		log.Err(err)
 		return err
@@ -130,18 +131,6 @@ func runGpt(cmd *cobra.Command) error {
 	}
 
 	return nil
-}
-
-func isPathDir(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-	if fileInfo.IsDir() {
-		return true, nil
-	} else {
-		return false, nil
-	}
 }
 
 func writeFile(content, path string) error {
@@ -231,10 +220,10 @@ func ReadPromptFromFile(promptFile string) (string, error) {
 	log.Info().Msg(fmt.Sprintf("Trying to read prompt file '%s'", promptFile))
 	p, err := ReadFileToString(promptFile)
 	if err != nil {
-		if basePath, err = getBasePath(); err != nil {
+		if basePath, err = consoleHelpers.GetSubDirPath("", flags.GetStrFlag(flags.GptPromptsPathFlag)); err != nil {
 			return "", nil
 		}
-		promptFile = filepath.Join(basePath, flags.GetStrFlag(flags.GptPromptsPathFlag), promptFile)
+		promptFile = filepath.Join(basePath, promptFile)
 		log.Info().Msg(fmt.Sprintf("Trying to read prompt file '%s'", promptFile))
 		p, err = ReadFileToString(promptFile)
 		if err != nil {
@@ -264,41 +253,19 @@ func ReadPromptFromFile(promptFile string) (string, error) {
 func readTemplates(values []string) (map[string]string, error) {
 	templates := make(map[string]string)
 	for _, val := range values {
-		basePath, err := getBasePath()
+		templatesPath, err := consoleHelpers.GetSubDirPath("", flags.GetStrFlag(flags.GptTemplatesPathFlag))
 		if err != nil {
 			return templates, err
 		}
-		fn := filepath.Join(basePath, flags.GetStrFlag(flags.GptTemplatesPathFlag), val+".txt")
-		log.Info().Msg(fmt.Sprintf("Trying to read template file '%s'", fn))
-		if template, err := ReadFileToString(fn); err != nil {
+		templateFilename := filepath.Join(templatesPath, val+".txt")
+		log.Info().Msg(fmt.Sprintf("Trying to read template file '%s'", templateFilename))
+		if template, err := ReadFileToString(templateFilename); err != nil {
 			return templates, err
 		} else {
 			templates["kics-"+val] = template
 		}
 	}
 	return templates, nil
-}
-
-func getBasePath() (string, error) {
-	binPath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	basePath := filepath.Dir(filepath.Dir(binPath))
-	assetsPath := filepath.Join(basePath, "assets")
-	isDir, err := isPathDir(assetsPath)
-	if err != nil {
-		basePath = filepath.Dir(basePath)
-		assetsPath = filepath.Join(basePath, "assets")
-	}
-	isDir, err = isPathDir(assetsPath)
-	if err != nil {
-		return "", err
-	}
-	if !isDir {
-		return "", errors.Errorf("assets path '%s' is not a directory", assetsPath)
-	}
-	return basePath, nil
 }
 
 func uniqueValues(values []string) []string {
