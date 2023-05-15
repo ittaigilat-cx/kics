@@ -1,0 +1,3 @@
+go mod tidy
+go generate ./...
+go build -o bin/kics.exe -ldflags "-X github.com/Checkmarx/kics/internal/constants.SCMCommit=2b0b4294b923b9bd64f1f5a479abf02fa8bc7c07 -X github.com/Checkmarx/kics/internal/constants.Version=snapshot-2b0b4294 -X github.com/Checkmarx/kics/internal/constants.BaseURL=" cmd/console/main.go

@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Checkmarx/kics/pkg/utils"
+
 	consoleFlags "github.com/Checkmarx/kics/internal/console/flags"
 	"github.com/Checkmarx/kics/pkg/model"
 	"github.com/gookit/color"
@@ -35,6 +37,7 @@ var (
 		consoleFlags.LogFormatFlag: func(opt interface{}, changed bool) error {
 			return nil
 		},
+		consoleFlags.NoColorFlag: NoColor,
 	}
 
 	optionsOrderMap = map[int]string{
@@ -45,6 +48,7 @@ var (
 		5: consoleFlags.SilentFlag,
 		6: consoleFlags.VerboseFlag,
 		7: consoleFlags.LogFormatFlag,
+		8: consoleFlags.NoColorFlag,
 	}
 
 	consoleLogger = zerolog.ConsoleWriter{Out: io.Discard}
@@ -74,6 +78,7 @@ type Printer struct {
 	Line                color.RGBColor
 	VersionMessage      color.RGBColor
 	ContributionMessage color.RGBColor
+	minimal             bool
 }
 
 // WordWrap Wraps text at the specified number of words
@@ -97,7 +102,7 @@ func WordWrap(s, indentation string, limit int) string {
 }
 
 // PrintResult prints on output the summary results
-func PrintResult(summary *model.Summary, failedQueries map[string]error, printer *Printer) error {
+func PrintResult(summary *model.Summary, failedQueries map[string]error, printer *Printer, usingCustomQueries bool) error {
 	log.Debug().Msg("helpers.PrintResult()")
 	fmt.Printf("Files scanned: %d\n", summary.ScannedFiles)
 	fmt.Printf("Parsed files: %d\n", summary.ParsedFiles)
@@ -108,6 +113,7 @@ func PrintResult(summary *model.Summary, failedQueries map[string]error, printer
 		fmt.Printf("\t- %s:\n", queryName)
 		fmt.Printf("%s", WordWrap(err.Error(), "\t\t", wordWrapCount))
 	}
+
 	fmt.Printf("------------------------------------\n\n")
 	for index := range summary.Queries {
 		idx := len(summary.Queries) - index - 1
@@ -121,10 +127,33 @@ func PrintResult(summary *model.Summary, failedQueries map[string]error, printer
 			printer.PrintBySev(string(summary.Queries[idx].Severity), string(summary.Queries[idx].Severity)),
 			len(summary.Queries[idx].Files),
 		)
+		if !printer.minimal {
+			if summary.Queries[idx].CISDescriptionID != "" {
+				fmt.Printf("%s %s\n", printer.Bold("Description ID:"), summary.Queries[idx].CISDescriptionIDFormatted)
+				fmt.Printf("%s %s\n", printer.Bold("Title:"), summary.Queries[idx].CISDescriptionTitle)
+				fmt.Printf("%s %s\n", printer.Bold("Description:"), summary.Queries[idx].CISDescriptionTextFormatted)
+			} else {
+				fmt.Printf("%s %s\n", printer.Bold("Description:"), summary.Queries[idx].Description)
+			}
+			fmt.Printf("%s %s\n", printer.Bold("Platform:"), summary.Queries[idx].Platform)
 
-		fmt.Printf("%s %s\n", printer.Bold("Description:"), summary.Queries[idx].Description)
-		fmt.Printf("%s %s\n\n", printer.Bold("Platform:"), summary.Queries[idx].Platform)
+			queryCloudProvider := summary.Queries[idx].CloudProvider
+			if queryCloudProvider != "" {
+				queryCloudProvider = strings.ToLower(queryCloudProvider) + "/"
+			}
 
+			// checks if should print queries URL DOCS based on the use of custom queries and invalid ids
+			if !usingCustomQueries {
+				if validQueryID(summary.Queries[idx].QueryID) {
+					fmt.Printf("%s %s\n\n",
+						printer.Bold("Learn more about this vulnerability:"),
+						fmt.Sprintf("https://docs.kics.io/latest/queries/%s-queries/%s%s",
+							strings.ToLower(summary.Queries[idx].Platform),
+							queryCloudProvider,
+							summary.Queries[idx].QueryID))
+				}
+			}
+		}
 		printFiles(&summary.Queries[idx], printer)
 	}
 	fmt.Printf("\nResults Summary:\n")
@@ -153,19 +182,20 @@ func printFiles(query *model.QueryResult, printer *Printer) {
 	for fileIdx := range query.Files {
 		fmt.Printf("\t%s %s:%s\n", printer.PrintBySev(fmt.Sprintf("[%d]:", fileIdx+1), string(query.Severity)),
 			query.Files[fileIdx].FileName, printer.Success.Sprint(query.Files[fileIdx].Line))
-
-		fmt.Println()
-		for _, line := range *query.Files[fileIdx].VulnLines {
-			if len(line.Line) > charsLimitPerLine {
-				line.Line = line.Line[:charsLimitPerLine]
+		if !printer.minimal {
+			fmt.Println()
+			for _, line := range *query.Files[fileIdx].VulnLines {
+				if len(line.Line) > charsLimitPerLine {
+					line.Line = line.Line[:charsLimitPerLine]
+				}
+				if line.Position == query.Files[fileIdx].Line {
+					printer.Line.Printf("\t\t%03d: %s\n", line.Position, line.Line)
+				} else {
+					fmt.Printf("\t\t%03d: %s\n", line.Position, line.Line)
+				}
 			}
-			if line.Position == query.Files[fileIdx].Line {
-				printer.Line.Printf("\t\t%03d: %s\n", line.Position, line.Line)
-			} else {
-				fmt.Printf("\t\t%03d: %s\n", line.Position, line.Line)
-			}
+			fmt.Print("\n\n")
 		}
-		fmt.Print("\n\n")
 	}
 }
 
@@ -230,7 +260,7 @@ func IsInitialized() bool {
 }
 
 // NewPrinter initializes a new Printer
-func NewPrinter() *Printer {
+func NewPrinter(minimal bool) *Printer {
 	return &Printer{
 		Medium:              color.HEX("#ff7213"),
 		High:                color.HEX("#bb2124"),
@@ -240,6 +270,7 @@ func NewPrinter() *Printer {
 		Line:                color.HEX("#f0ad4e"),
 		VersionMessage:      color.HEX("#ff9913"),
 		ContributionMessage: color.HEX("ffe313"),
+		minimal:             minimal,
 	}
 }
 
@@ -261,4 +292,13 @@ func (p *Printer) PrintBySev(content, sev string) string {
 // Bold returns the output in a bold format
 func (p *Printer) Bold(content string) string {
 	return color.Bold.Sprintf(content)
+}
+
+func validQueryID(queryID string) bool {
+	if queryID == "" {
+		return false
+	} else if queryID != "" {
+		return utils.ValidateUUID(queryID)
+	}
+	return true
 }

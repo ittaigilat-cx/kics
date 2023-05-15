@@ -74,7 +74,7 @@ func Test_PrintVersionCheck(t *testing.T) {
 	}{
 		{
 			name:           "test latest version",
-			consolePrinter: consolePrinter.NewPrinter(),
+			consolePrinter: consolePrinter.NewPrinter(true),
 			modelSummary: &model.Summary{
 				Version: "v1.0.0",
 				LatestVersion: model.Version{
@@ -86,7 +86,7 @@ func Test_PrintVersionCheck(t *testing.T) {
 		},
 		{
 			name:           "test outdated version",
-			consolePrinter: consolePrinter.NewPrinter(),
+			consolePrinter: consolePrinter.NewPrinter(true),
 			modelSummary: &model.Summary{
 				Version: "v1.0.0",
 				LatestVersion: model.Version{
@@ -127,13 +127,13 @@ func Test_ContributionAppeal(t *testing.T) {
 	}{
 		{
 			name:           "test custom query",
-			consolePrinter: consolePrinter.NewPrinter(),
+			consolePrinter: consolePrinter.NewPrinter(true),
 			queriesPath:    []string{filepath.Join("custom", "query", "path")},
 			expectedOutput: "\nAre you using a custom query? If so, feel free to contribute to KICS!\nCheck out how to do it: https://github.com/Checkmarx/kics/blob/master/docs/CONTRIBUTING.md",
 		},
 		{
 			name:           "test non custom query",
-			consolePrinter: consolePrinter.NewPrinter(),
+			consolePrinter: consolePrinter.NewPrinter(true),
 			queriesPath:    []string{filepath.Join("assets", "queries", "path")},
 			expectedOutput: "",
 		},
@@ -169,7 +169,7 @@ func Test_GetTotalFiles(t *testing.T) {
 		{
 			name:           "count utils folder files",
 			paths:          []string{filepath.Join("..", "..", "pkg", "utils")},
-			expectedOutput: 14,
+			expectedOutput: 16,
 		},
 		{
 			name:           "count progress folder files",
@@ -179,7 +179,7 @@ func Test_GetTotalFiles(t *testing.T) {
 		{
 			name:           "count progress and utils folder files",
 			paths:          []string{filepath.Join("..", "..", "pkg", "progress"), filepath.Join("..", "..", "pkg", "utils")},
-			expectedOutput: 20,
+			expectedOutput: 22,
 		},
 		{
 			name:           "count invalid folder",

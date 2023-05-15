@@ -1,2 +1,3 @@
-Error: required flag(s) "results" not set
+Auto remediates the project
+
 {{.RemediateHelp}}

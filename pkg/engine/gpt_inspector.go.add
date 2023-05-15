@@ -1,0 +1,20 @@
+package engine
+
+import (
+
+)
+
+// Inspector represents a list of compiled queries, a builder for vulnerabilities, an information tracker
+// a flag to enable coverage and the coverage report if it is enabled
+type GptInspector struct {
+	PromptLoader   *PromptLoader
+	vb             VulnerabilityBuilder
+	tracker        Tracker
+	failedQueries  map[string]error
+	excludeResults map[string]bool
+	detector       *detector.DetectLine
+
+	enableCoverageReport bool
+	coverageReport       cover.Report
+	queryExecTimeout     time.Duration
+}

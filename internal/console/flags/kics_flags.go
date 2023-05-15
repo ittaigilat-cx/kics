@@ -9,6 +9,7 @@ const (
 	LogFormatShorthand = "f"
 	LogLevelFlag       = "log-level"
 	LogPathFlag        = "log-path"
+	NoColorFlag        = "no-color"
 	ProfilingFlag      = "profiling"
 	SilentFlag         = "silent"
 	SilentShorthand    = "s"

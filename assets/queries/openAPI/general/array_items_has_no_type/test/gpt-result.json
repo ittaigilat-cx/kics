@@ -1,0 +1,8 @@
+[
+  {
+    "queryName": "array_items_has_no_type",
+    "severity": "High",
+    "line": 34,
+    "filename": "positive4.yaml"
+  }
+]

@@ -142,6 +142,14 @@ type QueryMetadata struct {
 	Aggregation int
 }
 
+type PromptMetadata struct {
+	InputData string
+	Prompt    string
+	Content   string
+	Metadata  map[string]interface{}
+	Platform  string
+}
+
 // Vulnerability is a representation of a detected vulnerability in scanned files
 // after running a query
 type Vulnerability struct {
