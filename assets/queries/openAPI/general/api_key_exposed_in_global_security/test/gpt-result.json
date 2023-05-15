@@ -1,8 +1,0 @@
-[
-  {
-    "queryName": "exposed api key in global security scheme",
-    "severity": "High",
-    "line": 64,
-    "filename": "positive1.json"
-  }
-]
