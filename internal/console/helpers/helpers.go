@@ -130,9 +130,9 @@ func GetExecutableDirectory() string {
 }
 
 // GetDefaultQueryPath - returns the default query path
-func GetDefaultQueryPath(queriesPath string) (string, error) {
+func GetDefaultQueryPath(path, queriesPath string) (string, error) {
 	log.Debug().Msg("helpers.GetDefaultQueryPath()")
-	queriesPath, err := GetSubDirPath("", queriesPath)
+	queriesPath, err := GetSubDirPath(path, queriesPath)
 	if err != nil {
 		return "", err
 	}
@@ -147,10 +147,9 @@ func GetSubDirPath(path, subDir string) (string, error) {
 	var err error
 	var basePath string
 	if path == "" {
-		basePath = GetExecutableDirectory()
-	} else {
-		basePath = path
+		path = GetExecutableDirectory()
 	}
+	basePath = path
 
 	subDirPath := filepath.Join(basePath, subDir)
 	isDir, err := IsPathDir(subDirPath)
