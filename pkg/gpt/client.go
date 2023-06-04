@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -44,6 +47,14 @@ type ResponseBody struct {
 		Completion_tokens int `json:"completion_tokens"`
 		Total_tokens      int `json:"total_tokens"`
 	} `json:"usage"`
+}
+
+type Result struct {
+	QueryName   string `json:"queryName"`
+	Severity    string `json:"severity"`
+	Line        int    `json:"line"`
+	Filename    string `json:"filename"`
+	Description string `json:"description"`
 }
 
 func CallGPT(apiKey, prompt string) (string, error) {
@@ -108,4 +119,66 @@ func callGPTAPI(apiKey string, requestBody RequestBody) (ResponseBody, error) {
 	}
 
 	return responseBody, nil
+}
+
+func ExtractResult(s string) []Result {
+	jsonString := ExtractResultAsString(s)
+	results, err := parseJSON(jsonString)
+	if err != nil {
+		return nil
+	}
+	return results
+}
+
+func ExtractResultAsString(s string) string {
+	var suffix, result string
+	suffix = substringAfter(s, "REGO result")
+	result = substringAfter(suffix, "```")
+	index := strings.Index(result, "```")
+	if index != -1 {
+		return result[:index]
+	} else {
+		return ""
+	}
+}
+
+func substringAfter(s, k string) string {
+	index := strings.Index(s, k)
+	if index != -1 {
+		return s[index+len(k):]
+	} else {
+		return ""
+	}
+}
+
+func parseJSON(jsonString string) ([]Result, error) {
+	var results []Result
+
+	jsonString = changeLineToInt(jsonString)
+
+	err := json.Unmarshal([]byte(jsonString), &results)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func changeLineToInt(jsonString string) string {
+	re := regexp.MustCompile(`"line":\s*("[^"]*"|\d+),`)
+	matches := re.FindAllStringSubmatch(jsonString, -1)
+
+	for _, match := range matches {
+		val := strings.TrimSpace(match[1])
+		if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
+			val = val[1 : len(val)-1]
+			intVal, err := strconv.Atoi(val)
+			if err != nil {
+				intVal = 0
+			}
+			jsonString = strings.Replace(jsonString, match[0], fmt.Sprintf("\"line\": %d,", intVal), 1)
+		}
+	}
+
+	return jsonString
 }

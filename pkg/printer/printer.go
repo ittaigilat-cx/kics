@@ -182,7 +182,7 @@ func printFiles(query *model.QueryResult, printer *Printer) {
 	for fileIdx := range query.Files {
 		fmt.Printf("\t%s %s:%s\n", printer.PrintBySev(fmt.Sprintf("[%d]:", fileIdx+1), string(query.Severity)),
 			query.Files[fileIdx].FileName, printer.Success.Sprint(query.Files[fileIdx].Line))
-		if !printer.minimal {
+		if !printer.minimal && query.Files[fileIdx].VulnLines != nil {
 			fmt.Println()
 			for _, line := range *query.Files[fileIdx].VulnLines {
 				if len(line.Line) > charsLimitPerLine {

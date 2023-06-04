@@ -4,12 +4,15 @@ package scan
 import (
 	"context"
 	"os"
+	"strings"
+	"strconv"
 
 	"github.com/Checkmarx/kics/assets"
 	"github.com/Checkmarx/kics/pkg/engine"
 	"github.com/Checkmarx/kics/pkg/engine/provider"
 	"github.com/Checkmarx/kics/pkg/engine/secrets"
 	"github.com/Checkmarx/kics/pkg/engine/source"
+	"github.com/Checkmarx/kics/pkg/gpt"
 	"github.com/Checkmarx/kics/pkg/kics"
 	"github.com/Checkmarx/kics/pkg/model"
 	"github.com/Checkmarx/kics/pkg/parser"
@@ -36,7 +39,7 @@ type Results struct {
 
 type executeScanParameters struct {
 	services       []*kics.Service
-	inspector      *engine.Inspector
+	failedQueries  model.FailedQueries
 	extractedPaths provider.ExtractedPath
 }
 
@@ -62,44 +65,63 @@ func (c *Client) initScan(ctx context.Context) (*executeScanParameters, error) {
 
 	queryFilter := c.createQueryFilter()
 
-	inspector, err := engine.NewInspector(ctx,
-		querySource,
-		engine.DefaultVulnerabilityBuilder,
-		c.Tracker,
-		queryFilter,
-		c.ExcludeResultsMap,
-		c.ScanParams.QueryExecTimeout,
-		true,
-	)
-	if err != nil {
-		return nil, err
-	}
+	var inspector *engine.Inspector
+	var secretsInspector *secrets.Inspector
+	var gptInspector *gpt.Inspector
+	if len(c.ScanParams.Gpt) == 0 {
+		inspector, err = engine.NewInspector(ctx,
+			querySource,
+			engine.DefaultVulnerabilityBuilder,
+			c.Tracker,
+			queryFilter,
+			c.ExcludeResultsMap,
+			c.ScanParams.QueryExecTimeout,
+			true,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	secretsRegexRulesContent, err := getSecretsRegexRules(c.ScanParams.SecretsRegexesPath)
-	if err != nil {
-		return nil, err
-	}
+		secretsRegexRulesContent, err := getSecretsRegexRules(c.ScanParams.SecretsRegexesPath)
+		if err != nil {
+			return nil, err
+		}
 
-	isCustomSecretsRegexes := len(c.ScanParams.SecretsRegexesPath) > 0
+		isCustomSecretsRegexes := len(c.ScanParams.SecretsRegexesPath) > 0
 
-	secretsInspector, err := secrets.NewInspector(
-		ctx,
-		c.ExcludeResultsMap,
-		c.Tracker,
-		queryFilter,
-		c.ScanParams.DisableSecrets,
-		c.ScanParams.QueryExecTimeout,
-		secretsRegexRulesContent,
-		isCustomSecretsRegexes,
-	)
-	if err != nil {
-		log.Err(err)
-		return nil, err
+		secretsInspector, err = secrets.NewInspector(
+			ctx,
+			c.ExcludeResultsMap,
+			c.Tracker,
+			queryFilter,
+			c.ScanParams.DisableSecrets,
+			c.ScanParams.QueryExecTimeout,
+			secretsRegexRulesContent,
+			isCustomSecretsRegexes,
+		)
+		if err != nil {
+			log.Err(err)
+			return nil, err
+		}
+	} else {
+		apiKey, threads := parseGptFlag(c.ScanParams.Gpt)
+		gptInspector, err = gpt.NewGptInspector(ctx,
+			querySource,
+			apiKey,
+			threads,
+			c.Tracker,
+			c.ExcludeResultsMap,
+			c.ScanParams.FilesAndTypes,
+			c.ScanParams.QueryExecTimeout)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	services, err := c.createService(
 		inspector,
 		secretsInspector,
+		gptInspector,
 		extractedPaths.Path,
 		c.Tracker,
 		c.Storage,
@@ -110,13 +132,20 @@ func (c *Client) initScan(ctx context.Context) (*executeScanParameters, error) {
 		return nil, err
 	}
 
+	var failedQueries model.FailedQueries
+	if len(c.ScanParams.Gpt) > 0 {
+		failedQueries = &gpt.Inspector{}
+	} else {
+		failedQueries = &engine.Inspector{}
+	}
+
 	if err := progressBar.Close(); err != nil {
 		log.Debug().Msgf("Failed to close progress bar: %s", err.Error())
 	}
 
 	return &executeScanParameters{
 		services:       services,
-		inspector:      inspector,
+		failedQueries:  failedQueries,
 		extractedPaths: extractedPaths,
 	}, nil
 }
@@ -138,7 +167,7 @@ func (c *Client) executeScan(ctx context.Context) (*Results, error) {
 		return nil, err
 	}
 
-	failedQueries := executeScanParameters.inspector.GetFailedQueries()
+	failedQueries := executeScanParameters.failedQueries.GetFailedQueries()
 
 	if err != nil {
 		return nil, err
@@ -162,6 +191,18 @@ func (c *Client) executeScan(ctx context.Context) (*Results, error) {
 		Files:          files,
 		FailedQueries:  failedQueries,
 	}, nil
+}
+
+func parseGptFlag(input string) (string, int) {
+	splitInput := strings.Split(input, ",")
+	apiKey := splitInput[0]
+	threads := 0
+
+	if len(splitInput) > 1 {
+		threads, _ = strconv.Atoi(splitInput[1])
+	}
+
+	return apiKey, threads
 }
 
 func getExcludeResultsMap(excludeResults []string) map[string]bool {
@@ -210,6 +251,7 @@ func (c *Client) createQueryFilter() *source.QueryInspectorParameters {
 func (c *Client) createService(
 	inspector *engine.Inspector,
 	secretsInspector *secrets.Inspector,
+	gptInspector *gpt.Inspector,
 	paths []string,
 	t kics.Tracker,
 	store kics.Storage,
@@ -231,6 +273,10 @@ func (c *Client) createService(
 		return nil, err
 	}
 
+	if gptInspector != nil {
+		return createGptService(gptInspector, filesSource, store, combinedParser, t)
+	}
+
 	// combinedResolver to be used to resolve files and templates
 	combinedResolver, err := resolver.NewBuilder().
 		Add(&helm.Resolver{}).
@@ -250,11 +296,45 @@ func (c *Client) createService(
 				Parser:           parser,
 				Inspector:        inspector,
 				SecretsInspector: secretsInspector,
+				GptInspector:     gptInspector,
 				Tracker:          t,
 				Resolver:         combinedResolver,
 			},
 		)
 	}
+	return services, nil
+}
+
+func createGptService(
+	gptInspector *gpt.Inspector,
+	filesSource *provider.FileSystemSourceProvider,
+	store kics.Storage,
+	parsers []*parser.Parser,
+	t kics.Tracker) ([]*kics.Service, error) {
+	services := make([]*kics.Service, 0)
+
+	allExtensions := make(model.Extensions, 0)
+	for _, p := range parsers {
+		parserExtensions := p.SupportedExtensions()
+		for ext, v := range parserExtensions {
+			allExtensions[ext] = v
+		}
+	}
+
+	dummy := &parser.Parser{
+		Extensions: allExtensions,
+	}
+
+	services = append(
+		services,
+		&kics.Service{
+			SourceProvider: filesSource,
+			Storage:        store,
+			GptInspector:   gptInspector,
+			Parser:         dummy,
+			Tracker:        t,
+		},
+	)
 	return services, nil
 }
 

@@ -91,8 +91,15 @@ func StartScan(ctx context.Context, scanID string, proBarBuilder progress.PbBuil
 func (s serviceSlice) GetQueriesLength() int {
 	count := 0
 	for _, service := range s {
-		count += service.Inspector.LenQueriesByPlat(service.Parser.Platform)
-		count += service.SecretsInspector.GetQueriesLength()
+		if service.Inspector != nil { 
+			count += service.Inspector.LenQueriesByPlat(service.Parser.Platform)
+		}
+		if service.SecretsInspector != nil {
+			count += service.SecretsInspector.GetQueriesLength()
+		}
+		if service.GptInspector != nil {
+			count += service.GptInspector.GetPromptsLength()
+		}
 	}
 	return count
 }

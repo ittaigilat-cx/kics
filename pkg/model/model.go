@@ -121,6 +121,7 @@ type FileMetadata struct {
 	OriginalData      string   `db:"orig_data"`
 	Kind              FileKind `db:"kind"`
 	FilePath          string   `db:"file_path"`
+	Platform          string
 	Content           string
 	HelmID            string
 	IDInfo            map[int]interface{}
@@ -140,6 +141,17 @@ type QueryMetadata struct {
 	// special field for generic queries
 	// represents how many queries are aggregated into a single rego file
 	Aggregation int
+}
+
+type PromptMetadata struct {
+	ID         string
+	PromptFile string
+	Prompt     string
+	Platform   string
+}
+
+type FailedQueries interface {
+	GetFailedQueries() map[string]error
 }
 
 // Vulnerability is a representation of a detected vulnerability in scanned files
@@ -274,11 +286,18 @@ func (m FileMetadatas) Combine(lineInfo bool) Documents {
 	return documents
 }
 
+// FileAndType is a tuple containing file path and its type
+type FileAndType struct {
+	File string
+	Type string
+}
+
 // AnalyzedPaths is a slice of types and excluded files obtained from the Analyzer
 type AnalyzedPaths struct {
-	Types       []string
-	Exc         []string
-	ExpectedLOC int
+	Types         []string
+	Exc           []string
+	ExpectedLOC   int
+	FilesAndTypes []FileAndType
 }
 
 // ResolvedFileSplit is a struct that contains the information of a resolved file, the path and the lines of the file

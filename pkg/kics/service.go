@@ -10,6 +10,7 @@ import (
 	"github.com/Checkmarx/kics/pkg/engine"
 	"github.com/Checkmarx/kics/pkg/engine/provider"
 	"github.com/Checkmarx/kics/pkg/engine/secrets"
+	"github.com/Checkmarx/kics/pkg/gpt"
 	"github.com/Checkmarx/kics/pkg/model"
 	"github.com/Checkmarx/kics/pkg/parser"
 	"github.com/Checkmarx/kics/pkg/resolver"
@@ -54,6 +55,7 @@ type Service struct {
 	Parser           *parser.Parser
 	Inspector        *engine.Inspector
 	SecretsInspector *secrets.Inspector
+	GptInspector     *gpt.Inspector
 	Tracker          Tracker
 	Resolver         *resolver.Resolver
 	files            model.FileMetadatas
@@ -64,17 +66,32 @@ func (s *Service) PrepareSources(ctx context.Context, scanID string, wg *sync.Wa
 	defer wg.Done()
 	// CxSAST query under review
 	data := make([]byte, mbConst)
-	if err := s.SourceProvider.GetSources(
-		ctx,
-		s.Parser.SupportedExtensions(),
-		func(ctx context.Context, filename string, rc io.ReadCloser) error {
-			return s.sink(ctx, filename, scanID, rc, data)
-		},
-		func(ctx context.Context, filename string) ([]string, error) { // Sink used for resolver files and templates
-			return s.resolverSink(ctx, filename, scanID)
-		},
-	); err != nil {
-		errCh <- errors.Wrap(err, "failed to read sources")
+
+	if s.Inspector != nil {
+		if err := s.SourceProvider.GetSources(
+			ctx,
+			s.Parser.SupportedExtensions(),
+			func(ctx context.Context, filename string, rc io.ReadCloser) error {
+				return s.sink(ctx, filename, scanID, rc, data)
+			},
+			func(ctx context.Context, filename string) ([]string, error) { // Sink used for resolver files and templates
+				return s.resolverSink(ctx, filename, scanID)
+			},
+		); err != nil {
+			errCh <- errors.Wrap(err, "failed to read sources")
+		}
+	} else {
+		if err := s.SourceProvider.GetSources(
+			ctx,
+			s.Parser.SupportedExtensions(),
+			func(ctx context.Context, filename string, rc io.ReadCloser) error {
+				return s.sinkGpt(ctx, filename, scanID, rc, data)
+			},
+			nil,
+		); err != nil {
+			errCh <- errors.Wrap(err, "failed to read sources")
+		}
+
 	}
 }
 
@@ -88,30 +105,36 @@ func (s *Service) StartScan(
 	log.Debug().Msg("service.StartScan()")
 	defer wg.Done()
 
-	secretsVulnerabilities, err := s.SecretsInspector.Inspect(
-		ctx,
-		s.SourceProvider.GetBasePaths(),
-		s.files,
-		currentQuery,
-	)
-	if err != nil {
-		errCh <- errors.Wrap(err, "failed to inspect secrets")
-	}
+	var vulnerabilities []model.Vulnerability
+	var err error
+	if s.GptInspector != nil {
+		vulnerabilities, err = s.GptInspector.Inspect(ctx, scanID, s.files, currentQuery)
+	} else {
+		secretsVulnerabilities, err := s.SecretsInspector.Inspect(
+			ctx,
+			s.SourceProvider.GetBasePaths(),
+			s.files,
+			currentQuery,
+		)
+		if err != nil {
+			errCh <- errors.Wrap(err, "failed to inspect secrets")
+		}
 
-	vulnerabilities, err := s.Inspector.Inspect(
-		ctx,
-		scanID,
-		s.files,
-		s.SourceProvider.GetBasePaths(),
-		s.Parser.Platform,
-		currentQuery,
-	)
+		vulnerabilities, err = s.Inspector.Inspect(
+			ctx,
+			scanID,
+			s.files,
+			s.SourceProvider.GetBasePaths(),
+			s.Parser.Platform,
+			currentQuery,
+		)
+		vulnerabilities = append(vulnerabilities, secretsVulnerabilities...)
+
+		updateMaskedSecrets(&vulnerabilities, s.SecretsInspector.SecretTracker)
+	}
 	if err != nil {
 		errCh <- errors.Wrap(err, "failed to inspect files")
 	}
-	vulnerabilities = append(vulnerabilities, secretsVulnerabilities...)
-
-	updateMaskedSecrets(&vulnerabilities, s.SecretsInspector.SecretTracker)
 
 	err = s.Storage.SaveVulnerabilities(ctx, vulnerabilities)
 	if err != nil {

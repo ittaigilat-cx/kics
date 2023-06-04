@@ -92,7 +92,7 @@ func runGpt(cmd *cobra.Command) error {
 		return err
 	}
 
-	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platfrom: '%s', input-path: '%s', output-path: '%s'", apiKey, query, platform, path, outputPath)
+	msg := fmt.Sprintf("console.gpt(). openai-api-key: '%s', query: '%s', platform: '%s', input-path: '%s', output-path: '%s'", apiKey, query, platform, path, outputPath)
 
 	log.Info().Msg(msg) // TODO: change to Debug()
 
@@ -116,7 +116,7 @@ func runGpt(cmd *cobra.Command) error {
 	fmt.Print(responseOutput)
 	details += responseOutput
 
-	result := strings.TrimSpace(extractResult(response))
+	result := strings.TrimSpace(gpt.ExtractResultAsString(response))
 
 	resultOutput := fmt.Sprintf("<Result>\n%s\n</Result>\n", result)
 	fmt.Print(resultOutput)
@@ -142,27 +142,6 @@ func writeFile(content, path string) error {
 		return err
 	}
 	return nil
-}
-
-func extractResult(s string) string {
-	var suffix, result string
-	suffix = substringAfter(s, "REGO result")
-	result = substringAfter(suffix, "```")
-	index := strings.Index(result, "```")
-	if index != -1 {
-		return result[:index]
-	} else {
-		return ""
-	}
-}
-
-func substringAfter(s, k string) string {
-	index := strings.Index(s, k)
-	if index != -1 {
-		return s[index+len(k):]
-	} else {
-		return ""
-	}
 }
 
 func GetPrompt(path, platform, query, queryDetails string) (string, error) {

@@ -7,6 +7,7 @@ import (
 	"github.com/Checkmarx/kics/internal/storage"
 	"github.com/Checkmarx/kics/internal/tracker"
 	"github.com/Checkmarx/kics/pkg/descriptions"
+	"github.com/Checkmarx/kics/pkg/model"
 	consolePrinter "github.com/Checkmarx/kics/pkg/printer"
 	"github.com/Checkmarx/kics/pkg/progress"
 	"github.com/rs/zerolog/log"
@@ -33,6 +34,7 @@ type Parameters struct {
 	ReportFormats               []string
 	Platform                    []string
 	ExcludePlatform             []string
+	FilesAndTypes               []model.FileAndType
 	QueryExecTimeout            int
 	LineInfoPayload             bool
 	DisableSecrets              bool
