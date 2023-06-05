@@ -69,7 +69,6 @@ func StartScan(ctx context.Context, scanID string, proBarBuilder progress.PbBuil
 
 	go func() {
 		defer func() {
-			close(currentQuery)
 			close(wgDone)
 			fmt.Println("\r")
 		}()
@@ -84,6 +83,7 @@ func StartScan(ctx context.Context, scanID string, proBarBuilder progress.PbBuil
 		close(errCh)
 		return err
 	}
+	close(currentQuery)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func StartScan(ctx context.Context, scanID string, proBarBuilder progress.PbBuil
 func (s serviceSlice) GetQueriesLength() int {
 	count := 0
 	for _, service := range s {
-		if service.Inspector != nil { 
+		if service.Inspector != nil {
 			count += service.Inspector.LenQueriesByPlat(service.Parser.Platform)
 		}
 		if service.SecretsInspector != nil {

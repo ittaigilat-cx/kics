@@ -119,7 +119,7 @@ func (c *Inspector) Inspect(
 					FileName:       result.SourceFile.FilePath,
 					QueryID:        result.PromptFile.ID,
 					QueryName:      result.PromptFile.PromptFile,
-					Description:    result.Response,
+					Description:    result.PromptFile.Prompt,
 					Platform:       result.Platform,
 					Severity:       model.Severity(res.Severity),
 					Line:           res.Line,
@@ -131,14 +131,6 @@ func (c *Inspector) Inspect(
 		}
 	}
 	return vulnerabilities, nil
-}
-
-func stringToInt(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		return 0
-	}
-	return i
 }
 
 func (c *Inspector) runGpt(sourceFiles model.FileMetadatas, currentQuery chan<- int64) []RequestResponse {
@@ -158,10 +150,10 @@ func (c *Inspector) runGpt(sourceFiles model.FileMetadatas, currentQuery chan<- 
 	for i := 0; i < threads; i++ {
 		go func() {
 			for prompt := range prompts {
-				currentQuery <- 1
 				start := time.Now()
 				response, err := CallGPT(c.apiKey, prompt.Prompt)
 				elapsedMilliseconds := time.Since(start).Milliseconds()
+				currentQuery <- 1
 
 				if err != nil {
 					sentryReport.ReportSentry(&sentryReport.Report{
@@ -175,12 +167,13 @@ func (c *Inspector) runGpt(sourceFiles model.FileMetadatas, currentQuery chan<- 
 					c.failedQueries[prompt.PromptFile.PromptFile] = err
 				}
 
-				fmt.Printf("File: '%s'\nPrompt: '%s'\nPlatform: '%s'\nResponse: '%s'\nResult(str): '%s'\n",
-					prompt.SourceFile.FilePath, prompt.PromptFile.PromptFile, prompt.Platform, response, ExtractResultAsString(response))
-				rs := ExtractResult(response)
-				for i, r := range rs {
-					fmt.Printf("[%d] queryName: '%s', severity: '%s', line: '%d', filename: '%s'\n", i, r.QueryName, r.Severity, r.Line, r.Filename)
-				}
+				// Uncomment for tracing purposes
+				// fmt.Printf("File: '%s'\nPrompt: '%s'\nPlatform: '%s'\nResponse: '%s'\nResult(str): '%s'\n",
+				// 	prompt.SourceFile.FilePath, prompt.PromptFile.PromptFile, prompt.Platform, response, ExtractResultAsString(response))
+				// rs := ExtractResult(response)
+				// for i, r := range rs {
+				// 	fmt.Printf("[%d] queryName: '%s', severity: '%s', line: '%d', filename: '%s'\n", i, r.QueryName, r.Severity, r.Line, r.Filename)
+				// }
 
 				responses <- RequestResponse{
 					SourceFile: prompt.SourceFile,
