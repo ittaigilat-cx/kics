@@ -17,11 +17,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	openAIConcurrentConnectionsKey     = "OPENAI_CONCURRENT_CONNECTIONS"
+	openAIConcurrentConnectionsDefault = "5"
+)
+
 type Inspector struct {
 	prompts          []model.PromptMetadata
 	files            []model.FileAndType
 	apiKey           string
-	threads          int
+	connections      int
 	tracker          engine.Tracker
 	failedQueries    map[string]error
 	excludeResults   map[string]bool
@@ -48,13 +53,16 @@ type Prompt struct {
 func NewGptInspector(
 	ctx context.Context,
 	queriesSource source.QueriesSource,
-	apiKey string,
-	threads int,
 	tracker engine.Tracker,
 	excludeResults map[string]bool,
 	filesAndTypes []model.FileAndType,
 	queryTimeout int) (*Inspector, error) {
 	log.Debug().Msg("engine.NewInspector()")
+
+	apiKey, connections, err := getGptEnv()
+	if err != nil {
+		return nil, err
+	}
 
 	metrics.Metric.Start("get_prompts")
 	prompts, err := queriesSource.GetPrompts()
@@ -69,12 +77,31 @@ func NewGptInspector(
 		prompts:          prompts,
 		files:            filesAndTypes,
 		apiKey:           apiKey,
-		threads:          threads,
+		connections:      connections,
 		tracker:          tracker,
 		failedQueries:    failedQueries,
 		excludeResults:   excludeResults,
 		queryExecTimeout: queryExecTimeout,
 	}, nil
+}
+
+func getGptEnv() (string, int, error) {
+	apiKey, err := GetApiKey()
+	if err != nil {
+		log.Err(err)
+		return "", 0, err
+	}
+
+	connectionsAsStr, err := EnvLookup(openAIConcurrentConnectionsKey, false, openAIConcurrentConnectionsDefault)
+	if err != nil {
+		log.Err(err)
+		return "", 0, err
+	}
+	var connections int
+	if connections, err = strconv.Atoi(connectionsAsStr); err != nil {
+		connections, _ = strconv.Atoi(openAIConcurrentConnectionsDefault)
+	}
+	return apiKey, connections, nil
 }
 
 func (c *Inspector) GetFailedQueries() map[string]error {
@@ -138,16 +165,16 @@ func (c *Inspector) runGpt(sourceFiles model.FileMetadatas, currentQuery chan<- 
 	prompts := make(chan Prompt)
 	responses := make(chan RequestResponse)
 	var wg sync.WaitGroup
-	var threads int
+	var connections int
 
-	if c.threads <= 0 {
-		threads = 5
+	if c.connections <= 0 {
+		connections = 5
 	} else {
-		threads = c.threads
+		connections = c.connections
 	}
-	wg.Add(threads)
+	wg.Add(connections)
 
-	for i := 0; i < threads; i++ {
+	for i := 0; i < connections; i++ {
 		go func() {
 			for prompt := range prompts {
 				start := time.Now()

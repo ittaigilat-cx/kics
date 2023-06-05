@@ -44,7 +44,7 @@ type Parameters struct {
 	ScanID                      string
 	BillOfMaterials             bool
 	ExcludeGitIgnore            bool
-	Gpt                         string
+	Gpt                         bool
 }
 
 // Client represents a scan client

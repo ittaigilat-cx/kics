@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,7 +16,9 @@ import (
 )
 
 const (
-	apiURL = "https://api.openai.com/v1/chat/completions"
+	apiURL       = "https://api.openai.com/v1/chat/completions"
+	gpt4URL      = "https://api.openai.com/v1/engines/gpt-4"
+	openAIApiKey = "OPENAI_API_KEY"
 )
 
 type RequestBody struct {
@@ -181,4 +185,87 @@ func changeLineToInt(jsonString string) string {
 	}
 
 	return jsonString
+}
+
+func GetApiKey() (string, error) {
+	apiKey, err := EnvLookup(openAIApiKey, true, "")
+	if err != nil {
+		return "", err
+	}
+
+	if err := IsValidApiKey(apiKey); err != nil {
+		return "", err
+	}
+	return apiKey, nil
+}
+
+type EngineInfo struct {
+	ID            string `json:"id"`
+	Object        string `json:"object"`
+	Created       int    `json:"created"`
+	Description   string `json:"description"`
+	MaxTokens     int    `json:"max_tokens"`
+	Name          string `json:"name"`
+	ReadyAvail    bool   `json:"ready_availability"`
+	Owner         string `json:"owner"`
+	Permissions   string `json:"permissions"`
+	Plan          string `json:"plan"`
+	PricePerToken string `json:"price_per_token"`
+}
+
+type ErrorMessage struct {
+	Error struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Param   string `json:"param"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
+func IsValidApiKey(apiKey string) error {
+	request, _ := http.NewRequest("GET", gpt4URL, nil)
+
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(request)
+
+	if err != nil { // response error
+		return err
+	} else if resp.StatusCode != http.StatusOK { // invalid key
+		var errMsg ErrorMessage
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		err := json.Unmarshal([]byte(body), &errMsg)
+		if err == nil {
+			return fmt.Errorf("OpenAI API key does not support GPT-4: %s", errMsg.Error.Message)
+		} else {
+			return err
+		}
+	} else { // response is OK
+		var engineInfo EngineInfo
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		} else if err := json.Unmarshal(body, &engineInfo); err != nil {
+			return err
+		} else if engineInfo.ID == "gpt-4" {
+			return nil
+		} else {
+			return fmt.Errorf("GPT-4 is inaccessible with the given API Key")
+		}
+	}
+}
+
+func EnvLookup(key string, mandatory bool, defaultValue string) (string, error) {
+	val, found := os.LookupEnv(key)
+	if !found {
+		if !mandatory {
+			return defaultValue, nil
+		} else {
+			return "", fmt.Errorf("environment variable '%s' not found", key)
+		}
+	}
+	return val, nil
 }

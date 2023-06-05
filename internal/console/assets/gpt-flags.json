@@ -1,10 +1,4 @@
 {
-  "api-key": {
-    "flagType": "str",
-    "shorthandFlag": "k",
-    "defaultValue": "",
-    "usage": "the openai api key with which to call GPT"
-  },
   "query": {
     "flagType": "str",
     "shorthandFlag": "q",

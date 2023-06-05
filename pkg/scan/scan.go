@@ -4,8 +4,8 @@ package scan
 import (
 	"context"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/Checkmarx/kics/assets"
 	"github.com/Checkmarx/kics/pkg/engine"
@@ -68,7 +68,7 @@ func (c *Client) initScan(ctx context.Context) (*executeScanParameters, error) {
 	var inspector *engine.Inspector
 	var secretsInspector *secrets.Inspector
 	var gptInspector *gpt.Inspector
-	if len(c.ScanParams.Gpt) == 0 {
+	if !c.ScanParams.Gpt {
 		inspector, err = engine.NewInspector(ctx,
 			querySource,
 			engine.DefaultVulnerabilityBuilder,
@@ -104,11 +104,8 @@ func (c *Client) initScan(ctx context.Context) (*executeScanParameters, error) {
 			return nil, err
 		}
 	} else {
-		apiKey, threads := parseGptFlag(c.ScanParams.Gpt)
 		gptInspector, err = gpt.NewGptInspector(ctx,
 			querySource,
-			apiKey,
-			threads,
 			c.Tracker,
 			c.ExcludeResultsMap,
 			c.ScanParams.FilesAndTypes,
@@ -133,7 +130,7 @@ func (c *Client) initScan(ctx context.Context) (*executeScanParameters, error) {
 	}
 
 	var failedQueries model.FailedQueries
-	if len(c.ScanParams.Gpt) > 0 {
+	if c.ScanParams.Gpt {
 		failedQueries = &gpt.Inspector{}
 	} else {
 		failedQueries = &engine.Inspector{}

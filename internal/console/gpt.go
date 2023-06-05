@@ -64,8 +64,13 @@ func initGptCmd(gptCmd *cobra.Command) error {
 }
 
 func runGpt(cmd *cobra.Command) error {
+	apiKey, err := gpt.GetApiKey()
+	if err != nil {
+		log.Err(err)
+		return err
+	}
+
 	path := flags.GetStrFlag(flags.GptPathFlag)
-	apiKey := flags.GetStrFlag(flags.ApiKey)
 	query := flags.GetStrFlag(flags.QueryFlag)
 	queryDetails := flags.GetStrFlag(flags.QueryDetailsFlag)
 	platform := flags.GetStrFlag(flags.PlatformFlag)
