@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Checkmarx/kics/internal/console/flags"
 	consoleHelpers "github.com/Checkmarx/kics/internal/console/helpers"
@@ -111,7 +112,10 @@ func runGpt(cmd *cobra.Command) error {
 	fmt.Print(promptOutput)
 	details := promptOutput
 
+	start := time.Now()
 	response, err := gpt.CallGPT(apiKey, prompt)
+	elapsedMilliseconds := time.Since(start).Milliseconds()
+
 	if err != nil {
 		log.Err(err)
 		return err
@@ -134,6 +138,7 @@ func runGpt(cmd *cobra.Command) error {
 	if flags.GetBoolFlag(flags.GptOutputDetailsFlag) {
 		writeFile(details, outputPath+"-details.txt")
 	}
+	fmt.Printf("Total elapsed ms for GPT call: %v\n", elapsedMilliseconds)
 
 	return nil
 }
