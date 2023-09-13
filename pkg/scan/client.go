@@ -35,6 +35,7 @@ type Parameters struct {
 	Platform                    []string
 	ExcludePlatform             []string
 	FilesAndTypes               []model.FileAndType
+	TerraformVarsPath           string
 	QueryExecTimeout            int
 	LineInfoPayload             bool
 	DisableSecrets              bool
