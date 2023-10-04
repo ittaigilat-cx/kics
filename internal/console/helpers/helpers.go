@@ -141,6 +141,18 @@ func GetDefaultQueryPath(path, queriesPath string) (string, error) {
 	return queriesPath, nil
 }
 
+// GetDefaultExperimentalPath returns the default Experimental path
+func GetDefaultExperimentalPath(experimentalQueriesPath string) (string, error) {
+	log.Debug().Msg("helpers.GetDefaultExperimentalPath()")
+	experimentalQueriesFile, err := GetSubDirPath("", experimentalQueriesPath)
+	if err != nil {
+		return "", err
+	}
+
+	log.Debug().Msgf("Experimental Queries found in %s", experimentalQueriesFile)
+	return experimentalQueriesFile, nil
+}
+
 // GetSubDirPath - returns the full path of 'subDir' found by searching it as a sub-directory from 'path' upwards
 // if 'path' is empty, take the executable path
 func GetSubDirPath(path, subDir string) (string, error) {
