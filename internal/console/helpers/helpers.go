@@ -130,20 +130,21 @@ func GetExecutableDirectory() string {
 }
 
 // GetDefaultQueryPath - returns the default query path
-func GetDefaultQueryPath(queriesPath string) (string, error) {
+func GetDefaultQueryPath(path, queriesPath string) (string, error) {
 	log.Debug().Msg("helpers.GetDefaultQueryPath()")
-	queriesDirectory, err := GetFullPath(queriesPath)
+	queriesPath, err := GetSubDirPath(path, queriesPath)
 	if err != nil {
 		return "", err
 	}
-	log.Debug().Msgf("Queries found in %s", queriesDirectory)
-	return queriesDirectory, nil
+
+	log.Debug().Msgf("Queries found in %s", queriesPath)
+	return queriesPath, nil
 }
 
 // GetDefaultExperimentalPath returns the default Experimental path
 func GetDefaultExperimentalPath(experimentalQueriesPath string) (string, error) {
 	log.Debug().Msg("helpers.GetDefaultExperimentalPath()")
-	experimentalQueriesFile, err := GetFullPath(experimentalQueriesPath)
+	experimentalQueriesFile, err := GetSubDirPath("", experimentalQueriesPath)
 	if err != nil {
 		return "", err
 	}
@@ -152,26 +153,48 @@ func GetDefaultExperimentalPath(experimentalQueriesPath string) (string, error) 
 	return experimentalQueriesFile, nil
 }
 
-// GetFulPath returns the full path of a partial path used for queries or experimental queries json path
-func GetFullPath(partialPath string) (string, error) {
-	executableDirPath := GetExecutableDirectory()
-	fullPath := filepath.Join(executableDirPath, partialPath)
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		currentWorkDir, err := os.Getwd()
-		if err != nil {
-			return "", err
-		}
-		idx := strings.Index(currentWorkDir, "kics")
-		if idx != -1 {
-			currentWorkDir = currentWorkDir[:strings.LastIndex(currentWorkDir, "kics")] + "kics"
-		}
-		fullPath = filepath.Join(currentWorkDir, partialPath)
-		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-			return "", err
-		}
+// GetSubDirPath - returns the full path of 'subDir' found by searching it as a sub-directory from 'path' upwards
+// if 'path' is empty, take the executable path
+func GetSubDirPath(path, subDir string) (string, error) {
+	var err error
+	var basePath string
+	if path == "" {
+		path = GetExecutableDirectory()
 	}
+	basePath = path
 
-	return fullPath, nil
+	subDirPath := filepath.Join(basePath, subDir)
+	isDir, err := IsPathDir(subDirPath)
+	for err != nil && !isDir {
+		parentPath := filepath.Dir(basePath)
+		if basePath == parentPath {
+			err = fmt.Errorf("'%s' directory not found as sub-directory anywhere above '%s'", subDir, path)
+			break
+		}
+		basePath = parentPath
+		subDirPath = filepath.Join(basePath, subDir)
+		isDir, err = IsPathDir(subDirPath)
+	}
+	if err != nil {
+		return "", err
+	}
+	if !isDir {
+		return "", fmt.Errorf("'%s' path '%s' is not a directory", subDir, subDirPath)
+	}
+	return subDirPath, nil
+}
+
+// IsPathDir - is the given path a directory?
+func IsPathDir(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	if fileInfo.IsDir() {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 // ListReportFormats return a slice with all supported report formats

@@ -73,6 +73,7 @@ func (c *Client) prepareAndAnalyzePaths(ctx context.Context) (provider.Extracted
 
 	c.ScanParams.Platform = pathTypes.Types
 	c.ScanParams.ExcludePaths = pathTypes.Exc
+	c.ScanParams.FilesAndTypes = pathTypes.FilesAndTypes
 
 	return allPaths, nil
 }
@@ -137,7 +138,10 @@ func (c *Client) GetQueryPath() (provider.ExtractedPath, error) {
 		}
 	} else {
 		log.Debug().Msgf("Looking for queries in executable path and in current work directory")
-		defaultQueryPath, errDefaultQueryPath := consoleHelpers.GetDefaultQueryPath(c.ScanParams.QueriesPath[0])
+		if c.ScanParams.Gpt {
+			c.ScanParams.QueriesPath[0] = strings.Replace(c.ScanParams.QueriesPath[0], "queries", "prompts", 1)
+		}
+		defaultQueryPath, errDefaultQueryPath := consoleHelpers.GetDefaultQueryPath("", c.ScanParams.QueriesPath[0])
 		if errDefaultQueryPath != nil {
 			return extPath, errors.Wrap(errDefaultQueryPath, "unable to find queries")
 		}

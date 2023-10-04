@@ -1,0 +1,10 @@
+Explain the following GoogleDeploymentManager code (taken from file ${file}) and check if there are any security issues
+related to "Cloud Storage Bucket Versioning Disabled" (this is the QUERY_NAME). In order to protect object data from being 
+overwritten or accidentally deleted, storage bucket versioning must be enabled. This cuases storage to keep versions of its
+objects in a way that enables retreiving previous versions at will. 
+If there are any security issues of this type, specify in what lines of the code they appear and explain the issues that were
+found and then write them as a REGO result file, one result for each issue found.
+```
+${content}
+```
+${kics-result}

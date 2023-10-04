@@ -43,10 +43,12 @@ func NewKICSCmd() *cobra.Command {
 func initialize(rootCmd *cobra.Command) error {
 	scanCmd := NewScanCmd()
 	remediateCmd := NewRemediateCmd()
+	gptCmd := NewGptCmd()
 	analyzeCmd := NewAnalyzeCmd()
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewGenerateIDCmd())
 	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(gptCmd)
 	rootCmd.AddCommand(NewListPlatformsCmd())
 	rootCmd.AddCommand(remediateCmd)
 	rootCmd.AddCommand(analyzeCmd)
@@ -69,6 +71,9 @@ func initialize(rootCmd *cobra.Command) error {
 		return err
 	}
 
+	if err := initGptCmd(gptCmd); err != nil {
+		return err
+	}
 	if err := initAnalyzeCmd(analyzeCmd); err != nil {
 		return err
 	}

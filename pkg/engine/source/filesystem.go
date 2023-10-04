@@ -7,13 +7,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/Checkmarx/kics/assets"
+	"github.com/Checkmarx/kics/internal/console/helpers"
 	"github.com/Checkmarx/kics/internal/constants"
 	sentryReport "github.com/Checkmarx/kics/internal/sentry"
 	"github.com/Checkmarx/kics/pkg/model"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -246,6 +249,118 @@ func checkQueryExclude(metadata map[string]interface{}, queryParameters *QueryIn
 		(!queryParameters.BomQueries && metadata["severity"] == model.SeverityTrace)
 }
 
+func (s *FilesystemSource) GetPrompts() ([]model.PromptMetadata, error) {
+	prompts := make([]model.PromptMetadata, 0)
+	var err error
+
+	for _, source := range s.Source {
+		err = filepath.Walk(source,
+			func(p string, f os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+
+				if f.IsDir() {
+					return nil
+				}
+
+				prompt, err := ReadPrompt(p)
+				if err != nil {
+					return err
+				}
+
+				platform := getPlatform(filepath.Base(filepath.Dir(p)))
+
+				prompts = append(prompts, model.PromptMetadata{
+					ID:         uuid.New().String(),
+					PromptFile: p,
+					Prompt:     prompt,
+					Platform:   platform,
+				})
+
+				return nil
+			})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get query Source")
+		}
+	}
+
+	return prompts, nil
+}
+
+func ReadPrompt(promptFile string) (string, error) {
+	//var basePath string
+	p, err := ReadFileToString(promptFile)
+	if err != nil {
+		return "", err
+	}
+
+	kicsRegEx := regexp.MustCompile(`\$\{kics-([a-zA-Z]+)\}`)
+	matches := kicsRegEx.FindAllStringSubmatch(p, -1)
+	var values []string
+	for _, match := range matches {
+		values = append(values, match[1])
+	}
+	if len(values) == 0 {
+		return p, nil
+	}
+	values = uniqueValues(values)
+	templates, err := readTemplates(values, promptFile)
+	if err != nil {
+		return "", err
+	}
+	p = replaceKeywordsWithValues(p, templates)
+	return p, nil
+}
+
+func replaceKeywordsWithValues(input string, keysToValues map[string]string) string {
+	for key, value := range keysToValues {
+		placeholder := "${" + key + "}"
+		input = strings.ReplaceAll(input, placeholder, value)
+	}
+
+	return input
+}
+
+func uniqueValues(values []string) []string {
+	uniqueSet := make(map[string]bool)
+	var uniqueSlice []string
+
+	for _, val := range values {
+		if _, exists := uniqueSet[val]; !exists {
+			uniqueSet[val] = true
+			uniqueSlice = append(uniqueSlice, val)
+		}
+	}
+	return uniqueSlice
+}
+
+func ReadFileToString(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	bare := string(data)
+	return bare, nil
+}
+
+func readTemplates(values []string, promptFilename string) (map[string]string, error) {
+	templates := make(map[string]string)
+	for _, val := range values {
+		basePath, err := helpers.GetSubDirPath(promptFilename, "assets")
+		if err != nil {
+			return templates, err
+		}
+		fn := filepath.Join(basePath, "template/prompt", val+".txt")
+		if template, err := ReadFileToString(fn); err != nil {
+			return templates, err
+		} else {
+			templates["kics-"+val] = template
+		}
+	}
+	return templates, nil
+}
+
 // GetQueries walks a given filesource path returns all queries found in an array of
 // QueryMetadata struct
 func (s *FilesystemSource) GetQueries(queryParameters *QueryInspectorParameters) ([]model.QueryMetadata, error) {
@@ -436,7 +551,7 @@ func ReadQuery(queryDir string) (model.QueryMetadata, error) {
 		return model.QueryMetadata{}, fmt.Errorf("failed to read metadata field: %s", missingField)
 	}
 
-	platform := getPlatform(metadata["platform"].(string))
+	platform := getPlatformDir(metadata["platform"].(string))
 
 	inputData, errInputData := readInputData(filepath.Join(queryDir, "data.json"))
 	if errInputData != nil {
@@ -516,8 +631,36 @@ var supPlatforms = &supportedPlatforms{
 	"CICD":                    "cicd",
 }
 
-func getPlatform(metadataPlatform string) string {
+type supportedDirs map[string]string
+
+var dirToPlatform = &supportedDirs{
+	"ansible":                 "Ansible",
+	"cloudFormation":          "CloudFormation",
+	"common":                  "Common",
+	"crossplane":              "Crossplane",
+	"dockerfile":              "Dockerfile",
+	"dockerCompose":           "DockerCompose",
+	"knative":                 "Knative",
+	"k8s":                     "Kubernetes",
+	"openAPI":                 "OpenAPI",
+	"terraform":               "Terraform",
+	"azureResourceManager":    "AzureResourceManager",
+	"grpc":                    "GRPC",
+	"googleDeploymentManager": "GoogleDeploymentManager",
+	"buildah":                 "Buildah",
+	"pulumi":                  "Pulumi",
+	"serverlessFW":            "ServerlessFW",
+}
+
+func getPlatformDir(metadataPlatform string) string {
 	if p, ok := (*supPlatforms)[metadataPlatform]; ok {
+		return p
+	}
+	return "unknown"
+}
+
+func getPlatform(dir string) string {
+	if p, ok := (*dirToPlatform)[dir]; ok {
 		return p
 	}
 	return "unknown"

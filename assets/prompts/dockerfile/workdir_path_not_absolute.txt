@@ -1,0 +1,11 @@
+Explain the following Dockerfile code (taken from file ${file}) and check if there are any security issues 
+related to "WORKDIR path not absolute" (this is the QUERY_NAME). This issue is about having a relative WORKDIR 
+path instead of an absolute path. Having a relative WORKDIR path can lead to unexpected behavior and potential 
+security issues, and for clarity and reliability, you should always use absolute paths for your WORKDIR. If 
+WORDKIR is not specified, explain the default behavior.
+If there are any security issues of this type, specify in what lines of the code they appear and explain the 
+issues that were found and then write them as a REGO result file, one result for each issue found.
+```
+${content}
+```
+${kics-result}

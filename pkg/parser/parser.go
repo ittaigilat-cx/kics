@@ -55,7 +55,7 @@ func (b *Builder) Build(types, cloudProviders []string) ([]*Parser, error) {
 			}
 			parserSlice = append(parserSlice, &Parser{
 				parsers:    parser,
-				extensions: extensions,
+				Extensions: extensions,
 				Platform:   platforms,
 			})
 		}
@@ -70,7 +70,7 @@ var ErrNotSupportedFile = errors.New("unsupported file to parse")
 // Parser is a struct that associates a parser to its supported extensions
 type Parser struct {
 	parsers    kindParser
-	extensions model.Extensions
+	Extensions model.Extensions
 	Platform   []string
 }
 
@@ -155,7 +155,7 @@ func (c *Parser) Parse(filePath string, fileContent []byte) (ParsedDocument, err
 
 // SupportedExtensions returns extensions supported by KICS
 func (c *Parser) SupportedExtensions() model.Extensions {
-	return c.extensions
+	return c.Extensions
 }
 
 func contains(types []string, supportedTypes map[string]bool) bool {
@@ -174,6 +174,6 @@ func contains(types []string, supportedTypes map[string]bool) bool {
 
 func (c *Parser) isValidExtension(filePath string) bool {
 	ext := utils.GetExtension(filePath)
-	_, ok := c.extensions[ext]
+	_, ok := c.Extensions[ext]
 	return ok
 }

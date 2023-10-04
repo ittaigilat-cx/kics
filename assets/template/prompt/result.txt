@@ -1,0 +1,12 @@
+Use this format for the REGO result: 
+```
+[
+  {
+    "queryName": <QUERY_NAME>,
+    "severity": <SEVERITY either HIGH, MEDIUM, LOW, INFO, TRACE>,
+    "line": <the line in the code where the issue was found>,
+    "filename": <FILE_NAME>
+    "description": <QUERY_DESCRIPTION>
+  }
+]
+```

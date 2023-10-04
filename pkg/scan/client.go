@@ -7,6 +7,7 @@ import (
 	"github.com/Checkmarx/kics/internal/storage"
 	"github.com/Checkmarx/kics/internal/tracker"
 	"github.com/Checkmarx/kics/pkg/descriptions"
+	"github.com/Checkmarx/kics/pkg/model"
 	consolePrinter "github.com/Checkmarx/kics/pkg/printer"
 	"github.com/Checkmarx/kics/pkg/progress"
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,7 @@ type Parameters struct {
 	ReportFormats               []string
 	Platform                    []string
 	ExcludePlatform             []string
+	FilesAndTypes               []model.FileAndType
 	TerraformVarsPath           string
 	QueryExecTimeout            int
 	LineInfoPayload             bool
@@ -44,6 +46,7 @@ type Parameters struct {
 	ScanID                      string
 	BillOfMaterials             bool
 	ExcludeGitIgnore            bool
+	Gpt                         bool
 }
 
 // Client represents a scan client

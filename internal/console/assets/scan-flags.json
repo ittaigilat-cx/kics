@@ -202,5 +202,12 @@
     "shorthandFlag": "",
     "defaultValue": "false",
     "usage": "disables the exclusion of paths specified within .gitignore file"
+  },
+  "gpt": {
+    "flagType": "bool",
+    "shorthandFlag": "",
+    "defaultValue": "false",
+    "usage": "Uses OpenAI GPT-4 to scan the input files\noverrides regular scanning and uses prompts from './assets/prompts'" 
   }
+
 }

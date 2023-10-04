@@ -1,0 +1,56 @@
+{
+  "query": {
+    "flagType": "str",
+    "shorthandFlag": "q",
+    "defaultValue": "",
+    "usage": "free-text description of the security vulnerability to check against\n or the file path to the GPT prompt to use (assumed to be in assets/prompts)\nfree-text query example: \"RBAC Wildcard In Rule\"\nprompt file example: \"k8s/rbac-wildcard-in-rule.txt\""
+  },
+  "query-details": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "",
+    "usage": "if the query is free-text, the this provides more details about the security vulnerability to check. ignored if the query is a prompt file\nexample: \"Roles and ClusterRoles with wildcard RBAC permissions provide excessive rights to the Kubernetes API and should be avoided. The principle of least privilege recommends to specify only the set of needed objects and actions\""
+  },
+  "type": {
+    "flagType": "str",
+    "shorthandFlag": "t",
+    "defaultValue": "",
+    "usage": "the platform type of the security vulnerability\nexample: \"Kubernetes\""
+  },
+  "gpt-input-path": {
+    "flagType": "str",
+    "shorthandFlag": "p",
+    "defaultValue": "",
+    "usage": "path to scan\nexample: \"./somepath/somefile.yaml\""
+  },
+  "gpt-output-name": {
+    "flagType": "str",
+    "shorthandFlag": "n",
+    "defaultValue": "gpt-results",
+    "usage": "results file name (extension is \".json\")"
+  },
+  "gpt-output-path": {
+    "flagType": "str",
+    "shorthandFlag": "o",
+    "defaultValue": "",
+    "usage": "directory path to store results"
+  },
+  "gpt-output-details": {
+    "flagType": "bool",
+    "shorthandFlag": "d",
+    "defaultValue": "false",
+    "usage": "output all GPT response into separate text file (with extension \".txt\") named as result filename with \"-details\" suffix"
+  },
+  "gpt-prompts-path": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "assets/prompts",
+    "usage": "location of prompts files"
+  },
+  "gpt-templates-path": {
+    "flagType": "str",
+    "shorthandFlag": "",
+    "defaultValue": "assets/template/prompt",
+    "usage": "location of prompt template files"
+  }  
+}

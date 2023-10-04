@@ -1,0 +1,12 @@
+Explain the following GoogleDeploymentManager code (taken from file ${file}) and check if there are any security issues
+related to "Cloud Storage Anonymous or Publicly Accessible" (this is the QUERY_NAME). This security issue is about cloud
+storage buckets that unintentionaly may be publicly or anonymously accessible by not providing enough access limitations. 
+Specifically, report a security issue of this type when either 
+1. 'acl.entity' and 'defaultAcl.entity' are not defined at all, in which case create a result with a INFO severity indicating a best practice
+2. 'acl.entity' and 'defaultAcl.entity' are defined and have values of 'allUsers' or 'allAuthenticatedUsers'
+If there are any security issues of this type, specify in what lines of the code they appear and explain the issues that were
+found and then write them as a REGO result file, one result for each issue found.
+```
+${content}
+```
+${kics-result}

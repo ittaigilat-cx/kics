@@ -16,7 +16,7 @@ func TestParser_Parse(t *testing.T) {
 	p := initilizeBuilder()
 
 	for _, parser := range p {
-		if _, ok := parser.extensions[".json"]; !ok {
+		if _, ok := parser.Extensions[".json"]; !ok {
 			continue
 		}
 		docs, err := parser.Parse("test.json", []byte(`
@@ -33,7 +33,7 @@ func TestParser_Parse(t *testing.T) {
 	}
 
 	for _, parser := range p {
-		if _, ok := parser.extensions[".yaml"]; !ok {
+		if _, ok := parser.Extensions[".yaml"]; !ok {
 			continue
 		}
 		docs, err := parser.Parse("test.yaml", []byte(`
@@ -47,7 +47,7 @@ martin:
 	}
 
 	for _, parser := range p {
-		if _, ok := parser.extensions[".dockerfile"]; !ok {
+		if _, ok := parser.Extensions[".dockerfile"]; !ok {
 			continue
 		}
 		docs, err := parser.Parse("Dockerfile", []byte(`

@@ -746,7 +746,7 @@ func Test_getPlatform(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPlatform(tt.args.PlatformInMetadata); got != tt.want {
+			if got := getPlatformDir(tt.args.PlatformInMetadata); got != tt.want {
 				t.Errorf("getPlatform() = %v, want %v", got, tt.want)
 			}
 		})

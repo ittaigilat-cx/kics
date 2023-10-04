@@ -44,6 +44,7 @@ type RegoLibraries struct {
 type QueriesSource interface {
 	GetQueries(querySelection *QueryInspectorParameters) ([]model.QueryMetadata, error)
 	GetQueryLibrary(platform string) (RegoLibraries, error)
+	GetPrompts() ([]model.PromptMetadata, error)
 }
 
 // mergeLibraries return custom library and embedded library merged, overwriting embedded library functions, if necessary
